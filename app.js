@@ -6,7 +6,18 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
 var passport = require('passport');
-require('dotenv').load()
+require('dotenv').load();
+var cookieSession = require('cookie-session');
+
+passport.use(new LinkedInStrategy({
+  clientID: process.env.LINKEDIN_CLIENT_ID,
+  clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+  callbackURL: process.env.HOST + "/auth/linkedin/callback",
+  scope: ['r_emailaddress', 'r_basicprofile'],
+  state: true
+}, function(accessToken, refreshToken, profile, done) {
+  done(null, {id: profile.id, displayName: profile.displayName})
+}));
 
 var routes = require('./routes/index');
 var users = require('./routes/users');
@@ -24,7 +35,12 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(cookieSession({
+  name: 'session',
+  keys: [process.env.KEY_1, process.env.KEY_2]
+}))
 app.use(passport.initialize());
+app.use(passport.session());
 
 passport.serializeUser(function(user, done) {
   done(null, user);
@@ -36,15 +52,16 @@ passport.deserializeUser(function(user, done) {
 app.use('/', routes);
 app.use('/users', users);
 
-passport.use(new LinkedInStrategy({
-  clientID: process.env.LINKEDIN_CLIENT_ID,
-  clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-  callbackURL: "http://127.0.0.1:3000/auth/linkedin/callback",
-  scope: ['r_emailaddress', 'r_basicprofile'],
-}, function(accessToken, refreshToken, profile, done) {
-  process.nextTick(function () {
-    return done(null, profile);
+app.get('/auth/linkedin',
+  passport.authenticate('linkedin'),
+  function(req, res){
+    // The request will be redirected to LinkedIn for authentication, so this
+    // function will not be called.
   });
+
+app.get('/auth/linkedin/callback', passport.authenticate('linkedin', {
+  successRedirect: '/',
+  failureRedirect: '/login'
 }));
 
 // catch 404 and forward to error handler
@@ -77,17 +94,5 @@ app.use(function(err, req, res, next) {
     error: {}
   });
 });
-
-app.get('/auth/linkedin',
-  passport.authenticate('linkedin', { state: 'SOME STATE'  }),
-  function(req, res){
-    // The request will be redirected to LinkedIn for authentication, so this
-    // function will not be called.
-  });
-
-app.get('/auth/linkedin/callback', passport.authenticate('linkedin', {
-  successRedirect: '/',
-  failureRedirect: '/login'
-}));
 
 module.exports = app;

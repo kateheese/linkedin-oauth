@@ -16,7 +16,7 @@ passport.use(new LinkedInStrategy({
   scope: ['r_emailaddress', 'r_basicprofile'],
   state: true
 }, function(accessToken, refreshToken, profile, done) {
-  done(null, {id: profile.id, displayName: profile.displayName})
+  done(null, {id: profile.id, displayName: profile.displayName, token: accessToken })
 }));
 
 var routes = require('./routes/index');
